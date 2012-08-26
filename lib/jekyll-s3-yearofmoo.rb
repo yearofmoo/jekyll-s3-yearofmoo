@@ -9,7 +9,7 @@ module Jekyll
 end
 
 %w{errors uploader cli}.each do |file|
-  require File.dirname(__FILE__) + "/jekyll-s3/#{file}"
+  require File.dirname(__FILE__) + "/jekyll-s3-yearofmoo/#{file}"
 end
 
 %w{invalidator}.each do |file|

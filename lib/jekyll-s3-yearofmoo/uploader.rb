@@ -54,7 +54,9 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
         }
 
         if @config['exclude_files']
-          patterns = @config['exclude_files']
+          patterns = @config['exclude_files'].map do |p|
+            Regexp.new(p)
+          end
           files.each do |file|
             found = true
             patterns.each do |pattern|
@@ -65,8 +67,6 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
         else
           paths = files
         end
-
-        raise paths.to_yaml
 
         paths
       end
