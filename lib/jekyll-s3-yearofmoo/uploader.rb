@@ -95,7 +95,6 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
 
         dir = @production_directory || SITE_DIR
         to_upload = local_files
-        raise to_upload.to_yaml
         to_upload.each do |f|
           run_with_retry do
             if AWS::S3::S3Object.store(f, open("#{dir}/#{f}"), @s3_bucket, :access => 'public-read')
