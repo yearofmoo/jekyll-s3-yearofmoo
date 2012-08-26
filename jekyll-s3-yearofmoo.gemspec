@@ -3,7 +3,7 @@ $:.push File.expand_path("../lib", __FILE__)
 require "jekyll-s3/version"
 
 Gem::Specification.new do |s|
-  s.name        = "jekyll-s3"
+  s.name        = "jekyll-s3-yearofmoo"
   s.version     = Jekyll::S3::VERSION
   s.platform    = Gem::Platform::RUBY
   s.authors     = ["Philippe Creux"]
@@ -14,7 +14,7 @@ Gem::Specification.new do |s|
 In addition, you can use this Gem to invalidate the related Cloudfront
 distribution, making it easy to deliver your blog via the CDN.}
 
-  s.default_executable = %q{jekyll-s3}
+  s.default_executable = %q{jekyll-s3-yearofmoo}
 
   s.add_dependency 'aws-s3'
   s.add_dependency 'cf-s3-invalidator'

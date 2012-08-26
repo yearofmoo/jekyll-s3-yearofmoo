@@ -43,9 +43,36 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
       end
 
       def local_files
-        Dir[SITE_DIR + '/**/*'].
-          delete_if { |f| File.directory?(f) }.
-          map { |f| f.gsub(SITE_DIR + '/', '') }
+        dir = @production_directory || SITE_DIR
+        paths = []
+
+        files = Dir[dir + '/**/*']
+        files = files.delete_if { |f|
+          File.directory?(f)
+        }.map { |f|
+          f.gsub(dir + '/', '')
+        }
+
+        if @config['exclude_files']
+          patterns = @config['exclude_files']
+          files.each do |file|
+            found = true
+            patterns.each do |pattern|
+              found = false if file =~ pattern 
+            end
+            paths.push(file) if found
+          end
+        else
+          paths = files
+        end
+
+        raise paths.to_yaml
+
+        paths
+      end
+
+      def customize_file_details(file)
+
       end
 
       # Please spec me!
@@ -123,13 +150,14 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
       # Load configuration from _jekyll_s3.yml
       # Raise MalformedConfigurationFileError if the configuration file does not contain the keys we expect
       def load_configuration
-        config = YAML.load_file(CONFIGURATION_FILE) rescue nil
-        raise MalformedConfigurationFileError unless config
+        @config = YAML.load_file(CONFIGURATION_FILE) rescue nil
+        raise MalformedConfigurationFileError unless @config
 
-        @s3_id = config['s3_id']
-        @s3_secret = config['s3_secret']
-        @s3_bucket = config['s3_bucket']
-        @cloudfront_distribution_id = config['cloudfront_distribution_id']
+        @s3_id = @config['s3_id']
+        @s3_secret = @config['s3_secret']
+        @s3_bucket = @config['s3_bucket']
+        @cloudfront_distribution_id = @config['cloudfront_distribution_id']
+        @production_directory = @config['production_directory']
 
         raise MalformedConfigurationFileError unless
           [@s3_id, @s3_secret, @s3_bucket].select { |k| k.nil? || k == '' }.empty?
