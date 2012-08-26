@@ -71,8 +71,25 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
         paths
       end
 
-      def customize_file_details(file)
+      def customize_file_metadata(file)
+        data = { :access => 'public-read' }
+        expiry = find_matching_expires_header(file)
+        if expiry
+          data[:expiry] = expiry
+        end
+        data
+      end
 
+      def find_matching_expires_header(file)
+        headers = @config['expire_headers']
+        raise headers.to_yaml
+        headers.each do |expire|
+          pattern = Regexp.new expire['pattern']
+          value = expire['value']
+          if value =~ pattern
+            return value
+          end
+        end
       end
 
       # Please spec me!
@@ -97,7 +114,10 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
         to_upload = local_files
         to_upload.each do |f|
           run_with_retry do
-            if AWS::S3::S3Object.store(f, open("#{dir}/#{f}"), @s3_bucket, :access => 'public-read')
+            path = "#{dir}/#{f}"
+            metadata = customize_file_metadata(path)
+            raise metadata.to_yaml
+            if AWS::S3::S3Object.store(f, open(path), @s3_bucket, metadata)
               puts("Upload #{f}: Success!")
             else
               puts("Upload #{f}: FAILURE!")
