@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 $:.push File.expand_path("../lib", __FILE__)
-require "jekyll-s3/version"
+require "jekyll-s3-yearofmoo/version"
 
 Gem::Specification.new do |s|
   s.name        = "jekyll-s3-yearofmoo"
