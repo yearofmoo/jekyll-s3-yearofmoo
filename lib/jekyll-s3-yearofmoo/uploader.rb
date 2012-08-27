@@ -71,26 +71,36 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
         paths
       end
 
+      def find_matching_content_type(file)
+        ext = File.extname(file).downcase
+        if ext == '.html' || ext == '.xview'
+          return 'text/html'
+        end
+        return nil
+      end
+
       def customize_file_metadata(file)
         data = { :access => 'public-read' }
-        expiry = find_matching_expires_header(file)
-        if expiry
-          data[:expiry] = expiry
+
+        headers = @config['headers']
+        headers.each do |h|
+          pattern = h['pattern']
+          header  = h['header']
+          value   = h['value']
+          pattern = Regexp.new(pattern)
+          if file =~ pattern
+            data[header] = value
+          end
         end
+
+        content_type = find_matching_content_type(file)
+        if content_type
+          data['Content-Type'] = content_type
+        end
+
         data
       end
 
-      def find_matching_expires_header(file)
-        headers = @config['expire_headers']
-        raise headers.to_yaml
-        headers.each do |expire|
-          pattern = Regexp.new expire['pattern']
-          value = expire['value']
-          if value =~ pattern
-            return value
-          end
-        end
-      end
 
       # Please spec me!
       def upload_to_s3!
@@ -116,7 +126,6 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
           run_with_retry do
             path = "#{dir}/#{f}"
             metadata = customize_file_metadata(path)
-            raise metadata.to_yaml
             if AWS::S3::S3Object.store(f, open(path), @s3_bucket, metadata)
               puts("Upload #{f}: Success!")
             else
