@@ -6,8 +6,8 @@ Gem::Specification.new do |s|
   s.name        = "jekyll-s3-yearofmoo"
   s.version     = Jekyll::S3::VERSION
   s.platform    = Gem::Platform::RUBY
-  s.authors     = ["Philippe Creux"]
-  s.email       = ["pcreux@gmail.com"]
+  s.authors     = ["Matias Niemela"]
+  s.email       = ["matias@yearofmoo.com"]
   s.homepage    = "https://github.com/versapay/jekyll-s3"
   s.summary     = %q{Push your Jekyll blog to S3}
   s.description = %q{This Gem allows you to push your Jekyll blog to AWS S3.

@@ -11,26 +11,18 @@ s3_bucket: your.blog.bucket.com
 cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
       EOF
 
-      def self.run!
-        new.run!
+      def self.run!(campaign=nil)
+        new.run!(campaign)
       end
 
-      def run!
+      def run!(campaign=nil)
         check_jekyll_project!
         check_s3_configuration!
         load_configuration
-        upload_to_s3!
-        invalidate_cf_dist_if_configured!
+        upload_to_s3!(campaign)
       end
 
       protected
-
-      def invalidate_cf_dist_if_configured!
-        cloudfront_configured = @cloudfront_distribution_id != nil && @cloudfront_distribution_id != ''
-        Jekyll::Cloudfront::Invalidator.invalidate(
-          @s3_id, @s3_secret, @s3_bucket, @cloudfront_distribution_id
-          ) if cloudfront_configured
-      end
 
       def run_with_retry
         begin
@@ -42,20 +34,48 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
         end
       end
 
-      def local_files(pattern=nil)
+      def local_files(campaign=nil)
         dir = @production_directory || SITE_DIR
         paths = []
 
-        pattern ||= '**/*'
-        files = Dir[dir + '/' + pattern]
+        campaign = @config['campaigns'][campaign]
+        if campaign
+          include_pattern = campaign['include_files']
+          exclude_pattern = campaign['exclude_files']
+        end
+
+        include_pattern ||= '**/*'
+        exclude_pattern ||= nil
+
+        if include_pattern.is_a?(Array)
+          files = []
+          include_pattern.each do |pat|
+            files |= Dir[dir + '/' + pat]
+          end
+        else
+          files = Dir[dir + '/' + include_pattern]
+        end
+
         files = files.delete_if { |f|
           File.directory?(f)
         }.map { |f|
           f.gsub(dir + '/', '')
         }
 
-        if @config['exclude_files']
-          patterns = @config['exclude_files'].map do |p|
+        if exclude_pattern
+          exclude_pattern = exclude_pattern.is_a?(Array) ? exclude_pattern : [exclude_pattern]
+        end
+
+        exclude_pattern ||= []
+
+        p = @config['exclude_files']
+        if p
+          p = p.is_a?(Array) ? p : [p]
+          exclude_pattern |= p
+        end
+
+        if exclude_pattern.length > 0
+          patterns = exclude_pattern.map do |p|
             Regexp.new(p)
           end
           files.each do |file|
@@ -114,18 +134,19 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
 
       # Please spec me!
       def upload_to_s3!(campaign=nil)
-
         if campaign
-          campaign = @config['campaigns'][campaign]
+          data = @config['campaigns'][campaign]
         end
 
-        remove_files = true
-        pattern = '**/*'
-        if campaign
-          pattern = campaign['files']
+        dir = @production_directory || SITE_DIR
+
+        if data
           remove_files = false
+          puts "Deploying Campaign = \"#{campaign}\" to #{@s3_bucket}"
+        else
+          remove_files = true
+          puts "Deploying Files = \"#{dir}/*\" to #{@s3_bucket}"
         end
-        puts "Deploying _site/#{pattern} to #{@s3_bucket}"
 
         AWS::S3::Base.establish_connection!(
             :access_key_id     => @s3_id,
@@ -141,8 +162,7 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
 
         remote_files = bucket.objects.map { |f| f.key }
 
-        dir = @production_directory || SITE_DIR
-        to_upload = local_files(pattern)
+        to_upload = local_files(campaign)
         to_upload.each do |f|
           run_with_retry do
             path = "#{dir}/#{f}"
@@ -156,7 +176,7 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
         end
 
         if remove_files
-          to_delete = remote_files - local_files
+          to_delete = remote_files - to_upload
 
           delete_all = false
           keep_all = false
