@@ -42,11 +42,12 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
         end
       end
 
-      def local_files
+      def local_files(pattern=nil)
         dir = @production_directory || SITE_DIR
         paths = []
 
-        files = Dir[dir + '/**/*']
+        pattern ||= '**/*'
+        files = Dir[dir + '/' + pattern]
         files = files.delete_if { |f|
           File.directory?(f)
         }.map { |f|
@@ -76,6 +77,15 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
         if ext == '.html' || ext == '.xview'
           return 'text/html'
         end
+        if file =~ /\.js\.gz/
+          return 'application/javascript'
+        end
+        if file =~ /\.css\.gz/
+          return 'text/css'
+        end
+        if file =~ /\.html\.gz/
+          return 'text/html'
+        end
         return nil
       end
 
@@ -103,8 +113,19 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
 
 
       # Please spec me!
-      def upload_to_s3!
-        puts "Deploying _site/* to #{@s3_bucket}"
+      def upload_to_s3!(campaign=nil)
+
+        if campaign
+          campaign = @config['campaigns'][campaign]
+        end
+
+        remove_files = true
+        pattern = '**/*'
+        if campaign
+          pattern = campaign['files']
+          remove_files = false
+        end
+        puts "Deploying _site/#{pattern} to #{@s3_bucket}"
 
         AWS::S3::Base.establish_connection!(
             :access_key_id     => @s3_id,
@@ -121,7 +142,7 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
         remote_files = bucket.objects.map { |f| f.key }
 
         dir = @production_directory || SITE_DIR
-        to_upload = local_files
+        to_upload = local_files(pattern)
         to_upload.each do |f|
           run_with_retry do
             path = "#{dir}/#{f}"
@@ -134,34 +155,41 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
           end
         end
 
-        to_delete = remote_files - local_files
+        if remove_files
+          to_delete = remote_files - local_files
 
-        delete_all = false
-        keep_all = false
-        to_delete.each do |f|
-          delete = false
-          keep = false
-          until delete || delete_all || keep || keep_all
-            puts "#{f} is on S3 but not in your _site directory anymore. Do you want to [d]elete, [D]elete all, [k]eep, [K]eep all?"
-            case STDIN.gets.chomp
-            when 'd' then delete = true
-            when 'D' then delete_all = true
-            when 'k' then keep = true
-            when 'K' then keep_all = true
+          delete_all = false
+          keep_all = false
+          to_delete.each do |f|
+            delete = false
+            keep = false
+            until delete || delete_all || keep || keep_all
+              puts "#{f} is on S3 but not in your _site directory anymore. Do you want to [d]elete, [D]elete all, [k]eep, [K]eep all?"
+              case STDIN.gets.chomp
+              when 'd' then delete = true
+              when 'D' then delete_all = true
+              when 'k' then keep = true
+              when 'K' then keep_all = true
+              end
             end
-          end
-          if (delete_all || delete) && !(keep_all || keep)
-            run_with_retry do
-              if AWS::S3::S3Object.delete(f, @s3_bucket)
-                puts("Delete #{f}: Success!")
-              else
-                puts("Delete #{f}: FAILURE!")
+            if (delete_all || delete) && !(keep_all || keep)
+              run_with_retry do
+                if AWS::S3::S3Object.delete(f, @s3_bucket)
+                  puts("Delete #{f}: Success!")
+                else
+                  puts("Delete #{f}: FAILURE!")
+                end
               end
             end
           end
         end
 
-        puts "Done! Go visit: http://#{@s3_bucket}.s3.amazonaws.com/index.html"
+        domain = 'http://#{@s3_bucket}.s3.amazonaws.com/index.html'
+        if @config['www']
+          domain = @config['www']
+        end
+        puts "Done! Go visit: #{domain}"
+
         true
       end
 
