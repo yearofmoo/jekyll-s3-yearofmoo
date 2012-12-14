@@ -4,6 +4,7 @@ module Jekyll
 
       SITE_DIR = "_site"
       CONFIGURATION_FILE = '_jekyll_s3.yml'
+      CONFIGURATION_FILE_SECRET = '_jekyll_s3_secret.yml'
       CONFIGURATION_FILE_TEMPLATE = <<-EOF
 s3_id: YOUR_AWS_S3_ACCESS_KEY_ID
 s3_secret: YOUR_AWS_S3_SECRET_ACCESS_KEY
@@ -231,11 +232,15 @@ cloudfront_distribution_id: YOUR_CLOUDFRONT_DIST_ID (OPTIONAL)
         @config = YAML.load_file(CONFIGURATION_FILE) rescue nil
         raise MalformedConfigurationFileError unless @config
 
-        @s3_id = @config['s3_id']
-        @s3_secret = @config['s3_secret']
-        @s3_bucket = @config['s3_bucket']
-        @cloudfront_distribution_id = @config['cloudfront_distribution_id']
+        @config2 = YAML.load_file(CONFIGURATION_FILE_SECRET) rescue nil
+        raise MalformedConfigurationFileError unless @config2
+
         @production_directory = @config['production_directory']
+
+        @s3_id                        = @config2['s3_id']
+        @s3_secret                    = @config2['s3_secret']
+        @s3_bucket                    = @config2['s3_bucket']
+        @cloudfront_distribution_id   = @config2['cloudfront_distribution_id']
 
         raise MalformedConfigurationFileError unless
           [@s3_id, @s3_secret, @s3_bucket].select { |k| k.nil? || k == '' }.empty?
